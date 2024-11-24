@@ -6,8 +6,8 @@ from queue import PriorityQueue
 pygame.init()
 
 # Cấu hình game
-GRID_SIZE = 6  # Bảng 6x6
-WINDOW_SIZE = 750  # Tăng kích thước cửa sổ
+GRID_SIZE = 4  # Thay đổi từ 6 xuống 4
+WINDOW_SIZE = 600  # Điều chỉnh kích thước cửa sổ cho phù hợp
 TILE_SIZE = WINDOW_SIZE // GRID_SIZE
 FPS = 60
 
@@ -24,7 +24,7 @@ class PuzzleState:
         self.parent = parent
         self.move = move
         self.depth = depth
-        self.cost = self.calculate_manhattan() + depth * 0.4  # Giảm trọng số độ sâu
+        self.cost = self.calculate_manhattan() + depth * 0.4
 
     def calculate_manhattan(self):
         distance = 0
@@ -43,14 +43,14 @@ class PuzzleState:
 class Game:
     def __init__(self):
         self.screen = pygame.display.set_mode((WINDOW_SIZE, WINDOW_SIZE))
-        pygame.display.set_caption("35-Puzzle Game")
+        pygame.display.set_caption("15-Puzzle Game")  # Thay đổi tên game
         self.clock = pygame.time.Clock()
-        self.font = pygame.font.Font(None, 50)  # Điều chỉnh kích thước font
+        self.font = pygame.font.Font(None, 60)  # Tăng kích thước font vì grid nhỏ hơn
         self.moves_count = 0
         self.auto_solving = False
         self.solution = None
         self.solution_index = 0
-        self.solving_failed = False  # Thêm biến để theo dõi trạng thái giải
+        self.solving_failed = False
         self.reset_game()
 
     def reset_game(self):
@@ -68,7 +68,7 @@ class Game:
         
         current_state = [row[:] for row in goal_state]
         # Giảm số bước xáo trộn để dễ giải hơn
-        for _ in range(25):  
+        for _ in range(100):  # Tăng số bước xáo trộn vì 4x4 dễ giải hơn
             blank_i, blank_j = self.get_blank_pos_from_state(current_state)
             possible_moves = []
             for di, dj in [(0, 1), (1, 0), (0, -1), (-1, 0)]:
@@ -100,7 +100,7 @@ class Game:
             self.current_state[blank_i][blank_j], self.current_state[new_i][new_j] = \
                 self.current_state[new_i][new_j], self.current_state[blank_i][blank_j]
             self.moves_count += 1
-            self.solving_failed = False  # Reset trạng thái khi người chơi di chuyển
+            self.solving_failed = False
             return True
         return False
 
@@ -118,7 +118,7 @@ class Game:
         open_list = PriorityQueue()
         open_list.put(initial)
         closed_set = set()
-        max_iterations = 7000  # Tăng giới hạn lặp
+        max_iterations = 5000  # Giảm số lần lặp vì 4x4 dễ giải hơn
 
         iterations = 0
         while not open_list.empty() and iterations < max_iterations:
@@ -153,7 +153,7 @@ class Game:
                     if board_tuple not in closed_set:
                         open_list.put(new_state)
 
-        self.solving_failed = True  # Đánh dấu khi không tìm được giải pháp
+        self.solving_failed = True
         return False
 
     def draw_board(self):
@@ -170,7 +170,6 @@ class Game:
                                                     i * TILE_SIZE + TILE_SIZE // 2))
                     self.screen.blit(text, text_rect)
 
-        # Hiển thị thông báo
         if self.is_solved():
             win_text = self.font.render('WIN!', True, GREEN)
             text_rect = win_text.get_rect(center=(WINDOW_SIZE//2, WINDOW_SIZE//2))
