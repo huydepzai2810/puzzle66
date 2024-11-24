@@ -2,8 +2,6 @@
 
 Game xếp số 6x6 (35 số) với giao diện web sử dụng Flask và Bootstrap 5. Người chơi cần sắp xếp các số từ 1-35 theo thứ tự, với ô trống ở vị trí cuối cùng.
 
-![Game Preview](preview.png)
-
 ## Yêu cầu hệ thống
 
 - Python 3.x
@@ -47,6 +45,7 @@ puzzle66/
 
 2. Chạy server Flask:
 ```bash
+pip install flask
 py app.py
 ```
 
