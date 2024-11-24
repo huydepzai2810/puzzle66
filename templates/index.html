@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>35-Puzzle Game</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .game-container {
+            max-width: 750px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+        .game-board {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 5px;
+            margin: 20px 0;
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 10px;
+        }
+        .tile {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: bold;
+            background: #0d6efd;
+            color: white;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.3s;
+        }
+        .tile:hover {
+            transform: scale(0.95);
+        }
+        .tile.empty {
+            background: transparent;
+            border: 2px dashed #dee2e6;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin: 20px 0;
+        }
+        .timer {
+            font-size: 24px;
+            font-weight: bold;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .moves {
+            text-align: center;
+            font-size: 18px;
+            margin: 10px 0;
+        }
+        .tips {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container game-container">
+        <h1 class="text-center mb-4">Trò Chơi Xếp Hình 35</h1>
+        
+        <div class="timer" id="timer">00:00</div>
+        <div class="moves" id="moves">Số bước: 0</div>
+        
+        <div class="game-board" id="gameBoard"></div>
+        
+        <div class="controls">
+            <button class="btn btn-primary" id="startBtn">Bắt Đầu</button>
+            <button class="btn btn-success" id="solveBtn">Tự Động Giải</button>
+            <button class="btn btn-danger" id="resetBtn">Chơi Lại</button>
+        </div>
+
+        <div class="alert alert-success mt-3 d-none" id="winMessage">
+            Chúc mừng! Bạn đã thắng! Thời gian: <span id="finalTime"></span>
+        </div>
+
+        <div class="tips">
+            <h5>Hướng dẫn:</h5>
+            <ul>
+                <li>Nhấn Start để bắt đầu</li>
+                <li>Nhấn vào ô để di chuyển</li>
+                <li>Auto Solve sẽ tự động giải</li>
+                <li>Nhấn R để chơi lại</li>
+            </ul>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        class PuzzleGame {
+            constructor() {
+                this.gridSize = 6;
+                this.board = [];
+                this.moves = 0;
+                this.timer = null;
+                this.startTime = null;
+                this.isPlaying = false;
+                this.autoSolving = false;
+                this.solution = null;
+                this.solutionIndex = 0;
+                
+                this.initializeBoard();
+                this.setupEventListeners();
+            }
+
+            initializeBoard() {
+                this.board = Array.from({length: this.gridSize * this.gridSize}, (_, i) => i + 1);
+                this.board[this.board.length - 1] = 0;
+                this.shuffleBoard();
+                this.renderBoard();
+            }
+
+            shuffleBoard() {
+                fetch('/new-puzzle')
+                    .then(response => response.json())
+                    .then(data => {
+                        this.board = data.puzzle.flat();
+                        this.renderBoard();
+                    })
+                    .catch(error => {
+                        console.error('Error getting new puzzle:', error);
+                    });
+            }
+
+            getPossibleMoves(emptyIndex) {
+                const row = Math.floor(emptyIndex / this.gridSize);
+                const col = emptyIndex % this.gridSize;
+                const moves = [];
+
+                for (const [dr, dc] of [[0, 1], [1, 0], [0, -1], [-1, 0]]) {
+                    const newRow = row + dr;
+                    const newCol = col + dc;
+                    if (newRow >= 0 && newRow < this.gridSize && 
+                        newCol >= 0 && newCol < this.gridSize) {
+                        moves.push(newRow * this.gridSize + newCol);
+                    }
+                }
+                return moves;
+            }
+
+            renderBoard() {
+                const gameBoard = document.getElementById('gameBoard');
+                gameBoard.innerHTML = '';
+                
+                this.board.forEach((num, index) => {
+                    const tile = document.createElement('div');
+                    tile.className = `tile ${num === 0 ? 'empty' : ''}`;
+                    tile.textContent = num || '';
+                    tile.dataset.index = index;
+                    gameBoard.appendChild(tile);
+                });
+
+                document.getElementById('moves').textContent = `Số bước: ${this.moves}`;
+            }
+
+            async autoSolve() {
+                if (this.autoSolving) return;
+                this.autoSolving = true;
+
+                try {
+                    const response = await fetch('/solve', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            board: this.convertTo2DArray()
+                        })
+                    });
+
+                    const data = await response.json();
+                    if (data.solution) {
+                        this.solution = data.solution;
+                        this.solutionIndex = 0;
+                        this.applySolution();
+                    }
+                } catch (error) {
+                    console.error('Error solving puzzle:', error);
+                    this.autoSolving = false;
+                }
+            }
+
+            convertTo2DArray() {
+                const array2D = [];
+                for (let i = 0; i < this.gridSize; i++) {
+                    array2D.push(this.board.slice(i * this.gridSize, (i + 1) * this.gridSize));
+                }
+                return array2D;
+            }
+
+            applySolution() {
+                if (this.solutionIndex < this.solution.length) {
+                    const nextBoard = this.solution[this.solutionIndex].flat();
+                    this.board = nextBoard;
+                    this.renderBoard();
+                    this.solutionIndex++;
+                    setTimeout(() => this.applySolution(), 500);
+                } else {
+                    this.autoSolving = false;
+                    this.checkWin();
+                }
+            }
+
+            move(index) {
+                if (!this.isPlaying || this.autoSolving) return;
+                
+                if (this.canMove(index)) {
+                    const emptyIndex = this.board.indexOf(0);
+                    [this.board[emptyIndex], this.board[index]] = 
+                    [this.board[index], this.board[emptyIndex]];
+                    this.moves++;
+                    this.renderBoard();
+                    this.checkWin();
+                }
+            }
+
+            canMove(index) {
+                const row = Math.floor(index / this.gridSize);
+                const col = index % this.gridSize;
+                const emptyIndex = this.board.indexOf(0);
+                const emptyRow = Math.floor(emptyIndex / this.gridSize);
+                const emptyCol = emptyIndex % this.gridSize;
+
+                return (Math.abs(row - emptyRow) + Math.abs(col - emptyCol)) === 1;
+            }
+
+            startGame() {
+                this.isPlaying = true;
+                this.moves = 0;
+                this.startTime = Date.now();
+                this.timer = setInterval(() => this.updateTimer(), 1000);
+                this.shuffleBoard();
+            }
+
+            updateTimer() {
+                if (!this.startTime) return;
+                
+                const elapsed = Math.floor((Date.now() - this.startTime) / 1000);
+                const minutes = Math.floor(elapsed / 60).toString().padStart(2, '0');
+                const seconds = (elapsed % 60).toString().padStart(2, '0');
+                document.getElementById('timer').textContent = `${minutes}:${seconds}`;
+            }
+
+            checkWin() {
+                const isWin = this.board.every((num, index) => 
+                    index === this.board.length - 1 ? num === 0 : num === index + 1
+                );
+
+                if (isWin) {
+                    clearInterval(this.timer);
+                    const finalTime = document.getElementById('timer').textContent;
+                    document.getElementById('finalTime').textContent = finalTime;
+                    document.getElementById('winMessage').classList.remove('d-none');
+                }
+            }
+
+            setupEventListeners() {
+                document.getElementById('gameBoard').addEventListener('click', (e) => {
+                    const tile = e.target.closest('.tile');
+                    if (tile) {
+                        this.move(parseInt(tile.dataset.index));
+                    }
+                });
+
+                document.getElementById('startBtn').addEventListener('click', () => {
+                    document.getElementById('winMessage').classList.add('d-none');
+                    this.startGame();
+                });
+
+                document.getElementById('solveBtn').addEventListener('click', () => {
+                    this.autoSolve();
+                });
+
+                document.getElementById('resetBtn').addEventListener('click', () => {
+                    clearInterval(this.timer);
+                    document.getElementById('timer').textContent = '00:00';
+                    document.getElementById('winMessage').classList.add('d-none');
+                    this.isPlaying = false;
+                    this.moves = 0;
+                    this.autoSolving = false;
+                    this.solution = null;
+                    this.shuffleBoard();
+                });
+
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'r' || e.key === 'R') {
+                        document.getElementById('resetBtn').click();
+                    }
+                });
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const game = new PuzzleGame();
+        });
+    </script>
+</body>
+</html>
